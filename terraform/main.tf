@@ -1,41 +1,62 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 3.0"
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  filter {
+    name = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-trusty-14.04-amd64-server-20151015"]
+  }
+  filter {
+    name = "virtualization-type"
+    values = ["hvm"]
+  }
+  owners = ["099720109477"] # Canonical
+}
+
+resource "aws_instance" "webserver" {
+  ami             = "${data.aws_ami.ubuntu.id}"
+  instance_type   = "${var.instance_type}"
+  key_name        = "${var.key_name}"
+  vpc_security_group_ids = [ "${aws_security_group.instance.id}" ]
+  user_data       = "${file("userdata.sh")}"
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  provisioner "file" {
+    source      = "upload/index.html"
+    destination = "/tmp/index.html"
+    connection {
+      host = "${aws_instance.webserver.public_ip}"
+      type     = "ssh"
+      user     = "ubuntu"
+      private_key = "${file("kenopsy.pem")}"
+      timeout = "2m"
     }
   }
+
 }
 
-# Configure the AWS Provider
-provider "aws" {
-  region = "us-east-2"
-}
+resource "aws_security_group" "instance" {
+  name = "test-sg"
+  description = "Allow traffic for instances"
 
-resource "aws_instance" "monitoramento" {
-  count = 1
-  ami = "ami-07efac79022b86107"
-  instance_type = "t2.micro"
-  key_name = "servidor"
-  tags = {
-    Name = "monitoramento"
+  ingress {
+    from_port = 22
+    to_port = 22
+    protocol = "tcp"
+    cidr_blocks = [ "0.0.0.0/0" ]
   }
-  vpc_security_group_ids = ["${aws_security_group.acesso-ssh.id}", 
-                            "${aws_security_group.acesso-web.id}",
-                            "${aws_security_group.acesso-prometheus.id}"
-                            ]
-}
 
-resource "aws_instance" "app" {
-  count = 1
-  ami = "ami-07efac79022b86107"
-  instance_type = "t2.micro"
-  key_name = "servidor"
-  tags = {
-    Name = "app"
+  ingress {
+    protocol    = "tcp"
+    from_port   = 80
+    to_port     = 80
+    cidr_blocks = ["0.0.0.0/0"]
   }
-  vpc_security_group_ids = ["${aws_security_group.acesso-ssh.id}", 
-                            "${aws_security_group.acesso-sample.id}",
-                            "${aws_security_group.acesso-web.id}"]
-}
 
+  egress {
+    from_port = 0
+    to_port = 65535
+    protocol = "tcp"
+    cidr_blocks = [ "0.0.0.0/0" ]
+  }
+}
