@@ -6,11 +6,6 @@ pipeline {
         }
     }
     stages {
-        stage('Checkout Code') {
-            steps {
-                git 'https://github.com/tobias-teltec/ci-sample.git'
-            }
-        }
         stage('Terraform Init & Plan') {
             steps {
                 dir('terraform') {
