@@ -11,12 +11,17 @@ pipeline {
                 git 'https://github.com/tobias-teltec/ci-sample.git'
             }
         }
-        stage('Terraform Plan & Apply') {
+        stage('Terraform Init & Plan') {
             steps {
                 dir('terraform') {
                 sh 'terraform init'
-                sh 'terraform plan-no-color -out=create.tfplan'
-                sh 'terraform apply -no-color -auto-approve create.tfplan'    
+                sh 'terraform plan-no-color -out=create.tfplan'   
+                }
+            }
+        stage('Terraform Apply') {
+            steps {
+                dir('terraform') {
+                   sh 'terraform apply -no-color -auto-approve create.tfplan'
                 }
             }
         }    
